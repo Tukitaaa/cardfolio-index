@@ -7,7 +7,8 @@ const {PNG}=require('pngjs');const jpeg=require('jpeg-js');const {cfDesc}=requir
 const OUT='index/cards.json',API='https://api.pokemontcg.io/v2/cards';
 const KEY=process.env.PTCG_KEY,H=KEY?{'X-Api-Key':KEY}:{};
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-async function get(url,bin){for(let a=0;a<6;a++){try{const r=await fetch(url,{headers:bin?{}:H});if(r.ok)return bin?Buffer.from(await r.arrayBuffer()):await r.json();if(r.status===404)return null}catch(e){}await sleep(1500*(a+1))}return null}
+// la API de pokemontcg a veces se cuelga o corta: reintenta con espera creciente y corta a los 60 s
+async function get(url,bin,tries=bin?6:12){for(let a=0;a<tries;a++){try{const r=await fetch(url,{headers:bin?{}:H,signal:AbortSignal.timeout(60000)});if(r.ok)return bin?Buffer.from(await r.arrayBuffer()):await r.json();if(r.status===404)return null;if(!bin)console.log('API respondió',r.status,'reintento',a+1)}catch(e){if(!bin)console.log('API falló:',e.message,'reintento',a+1)}await sleep(Math.min(60000,3000*(a+1)))}return null}
 function decode(buf){if(buf[0]===0x89){const p=PNG.sync.read(buf);return {px:p.data,w:p.width,h:p.height}}const j=jpeg.decode(buf,{useTArray:true,formatAsRGBA:true});return {px:j.data,w:j.width,h:j.height}}
 const old=new Map();
 if(fs.existsSync(OUT)){const o=JSON.parse(fs.readFileSync(OUT,'utf8'));const d=Buffer.from(o.d,'base64');o.ids.forEach((id,i)=>old.set(id,d.subarray(i*64,i*64+64)))}
