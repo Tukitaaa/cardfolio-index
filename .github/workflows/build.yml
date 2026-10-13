@@ -1,0 +1,26 @@
+name: Armar índice de cartas
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: node scripts/build.mjs
+        env:
+          PTCG_KEY: ${{ secrets.PTCG_KEY }}
+      - name: Guardar índice
+        run: |
+          git config user.name "cardfolio-bot"
+          git config user.email "cardfolio-bot@users.noreply.github.com"
+          git add index/cards.json
+          git diff --cached --quiet || (git commit -m "Actualizar índice de cartas" && git push)
